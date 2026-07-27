@@ -69,7 +69,9 @@ if (require.main === module) {
     const userCount = await db.prepare('SELECT COUNT(*) as count FROM users').get();
     if (userCount && parseInt(userCount.count) === 0) {
       console.log('Empty database detected, running seed...');
-      require('./seed');
+      const { seed } = require('./seed');
+      await seed({ skipInit: true });
+      console.log('Auto-seed complete.');
     }
 
     app.listen(PORT, () => {
