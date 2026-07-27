@@ -39,6 +39,17 @@ app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/gamification', require('./routes/gamification'));
+// Force seed endpoint
+app.get('/api/force-seed', async (req, res) => {
+  try {
+    const { seed } = require('./seed');
+    await seed({ skipInit: true });
+    res.json({ success: true, message: 'Seed run successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message, stack: err.stack });
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ success: true, data: { status: 'ok', timestamp: new Date().toISOString() } });
