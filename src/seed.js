@@ -3,9 +3,11 @@ const bcrypt = require('bcryptjs');
 
 const { getDb, initDb, closeDb } = require('./database');
 
-async function seed() {
-  console.log('Initializing database...');
-  await initDb();
+async function seed({ skipInit = false } = {}) {
+  if (!skipInit) {
+    console.log('Initializing database...');
+    await initDb();
+  }
   const db = getDb();
 
   console.log('Clearing existing data...');
@@ -465,10 +467,17 @@ async function seed() {
   const byTipo = await db.prepare('SELECT tipo, COUNT(*) as count FROM acoes_formativas GROUP BY tipo').all();
   byTipo.forEach(t => console.log(`      ${t.tipo}: ${t.count}`));
 
-  closeDb();
+  if (!skipInit) {
+    closeDb();
+  }
 }
 
-seed().catch(err => {
-  console.error('Seed failed:', err.message);
-  process.exit(1);
-});
+module.exports = { seed };
+
+// Auto-execute only when run directly (e.g., `node src/seed.js`)
+if (require.main === module) {
+  seed().catch(err => {
+    console.error('Seed failed:', err.message);
+    process.exit(1);
+  });
+}
