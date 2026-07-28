@@ -434,14 +434,20 @@ async function seed({ skipInit = false } = {}) {
 
   console.log('Creating badges...');
   const insertBadge = db.prepare('INSERT INTO badges (name, description, icon, requirement_type, requirement_value) VALUES (?, ?, ?, ?, ?)');
-  await insertBadge.run('Primeiro Passo', 'Envie sua primeira submissão', '🌱', 'level', 1);
-  await insertBadge.run('Iniciante', 'Alcance o nível 2', '⭐', 'level', 2);
-  await insertBadge.run('Explorador', 'Alcance o nível 3', '🚀', 'level', 3);
-  await insertBadge.run('Veterano', 'Alcance o nível 4', '🛡️', 'level', 4);
-  await insertBadge.run('Mestre', 'Alcance o nível 5', '👑', 'level', 5);
-  await insertBadge.run('Pesquisador', 'Crie sua primeira produção', '🔬', 'producao', 1);
-  await insertBadge.run('Acadêmico', 'Faça 5 produções', '🎓', 'producao', 5);
-  await insertBadge.run('Especialista', 'Alcance o nível 10', '🌟', 'level', 10);
+  await insertBadge.run('Primeiro Passo', 'Envie sua primeira submissão', 'star', 'level', 1);
+  await insertBadge.run('Iniciante', 'Alcance o nível 2', 'target', 'level', 2);
+  await insertBadge.run('Explorador', 'Registrou formações em 3 tipos diferentes', 'compass', 'types', 3);
+  await insertBadge.run('Veterano', 'Alcançou Nível 5', 'award', 'level', 5);
+  await insertBadge.run('Mestre dos Cursos', 'Registrou 5 cursos', 'book-open', 'curso', 5);
+  await insertBadge.run('Pesquisador', 'Crie sua primeira produção', 'star', 'producao', 1);
+  await insertBadge.run('Acadêmico', 'Registrou 3 produções acadêmicas', 'graduation-cap', 'producao', 3);
+  await insertBadge.run('Especialista', 'Alcance o nível 10', 'trophy', 'level', 10);
+  await insertBadge.run('Maratonista', 'Streak de 7 dias consecutivos', 'flame', 'streak', 7);
+  await insertBadge.run('Dedicado', '30 dias consecutivos de streak', 'flame', 'streak', 30);
+  await insertBadge.run('Centurião', 'Alcançou 100 horas de formação', 'clock', 'hours', 100);
+  await insertBadge.run('Primeira Certificação', 'Registrou sua primeira certificação', 'award', 'certificacao', 1);
+  await insertBadge.run('Elite', 'Alcançou 5000 XP', 'zap', 'xp', 5000);
+  await insertBadge.run('Estudo Diário', 'Completou 24h totais de estudos', 'clock', 'hours', 24);
 
   console.log('Initializing user gamification...');
   await db.exec('INSERT INTO user_gamification (user_id, xp, level) SELECT id, 0, 1 FROM users;');

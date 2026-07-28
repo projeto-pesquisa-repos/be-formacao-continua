@@ -194,6 +194,7 @@ router.get('/me', auth, async (req, res) => {
 
     // Don't expose sensitive fields
     const { google_id, password_hash, ...safeUser } = user;
+    safeUser.role = req.user.role;
 
     return res.json({ success: true, data: safeUser });
   } catch (err) {
