@@ -39,6 +39,7 @@ app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/settings', require('./routes/settings'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/gamification', require('./routes/gamification'));
+app.use('/api/suggestions', require('./routes/suggestions'));
 // Force seed endpoint
 app.get('/api/force-seed', async (req, res) => {
   try {

@@ -319,6 +319,17 @@ async function initDb() {
         awarded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, badge_id)
       );
+
+      CREATE TABLE IF NOT EXISTS formation_suggestions (
+        id SERIAL PRIMARY KEY,
+        created_by INTEGER REFERENCES users(id),
+        title TEXT NOT NULL,
+        description TEXT,
+        tipo TEXT NOT NULL,
+        target_professor_id INTEGER REFERENCES users(id),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        status TEXT DEFAULT 'pending'
+      );
     `);
   } else {
     // SQLite (sql.js) fallback
@@ -414,8 +425,19 @@ async function initDb() {
       CREATE TABLE IF NOT EXISTS user_badges (
         user_id INTEGER REFERENCES users(id),
         badge_id INTEGER REFERENCES badges(id),
-        awarded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        awarded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, badge_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS formation_suggestions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created_by INTEGER REFERENCES users(id),
+        title TEXT NOT NULL,
+        description TEXT,
+        tipo TEXT NOT NULL,
+        target_professor_id INTEGER REFERENCES users(id),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        status TEXT DEFAULT 'pending'
       );
     `);
 
