@@ -58,6 +58,7 @@ async function seed({ skipInit = false } = {}) {
 
   const coordPassword = bcrypt.hashSync('admin123', 10);
   const profPassword = bcrypt.hashSync('professor123', 10);
+  const adminPassword = bcrypt.hashSync('admin', 10);
 
   console.log('Creating users...');
   const insertUser = db.prepare(`
@@ -67,6 +68,9 @@ async function seed({ skipInit = false } = {}) {
   // Coordinators
   const coord1 = (await insertUser.run('google_coord_001', 'maria.silva@univ.edu.br', 'Maria da Silva', coordPassword, 'coordenador', null)).lastInsertRowid;
   const coord2 = (await insertUser.run('google_coord_002', 'joao.santos@univ.edu.br', 'João Santos', coordPassword, 'coordenador', null)).lastInsertRowid;
+  
+  // Admin User (admin@admin.com / admin)
+  const admin = (await insertUser.run('google_admin', 'admin@admin.com', 'Admin', adminPassword, 'coordenador', null)).lastInsertRowid;
 
   // Professors - Ciências Exatas
   const prof1 = (await insertUser.run('google_prof_001', 'ana.oliveira@univ.edu.br', 'Ana Oliveira', profPassword, 'professor', deptExatas)).lastInsertRowid;
