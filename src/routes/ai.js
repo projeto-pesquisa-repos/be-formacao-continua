@@ -112,10 +112,11 @@ Sugestão:`;
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error('xAI API Error:', errorData);
+      console.error('xAI API Error:', response.status, errorData);
+      const detail = errorData.error || errorData.message || JSON.stringify(errorData);
       return res.status(400).json({
         success: false,
-        error: 'Chave da API xAI Grok não configurada ou inválida. Configure a chave grok_api_key nas configurações do sistema.',
+        error: `Erro da API xAI (${response.status}): ${detail}`,
       });
     }
 
@@ -126,9 +127,9 @@ Sugestão:`;
   } catch (err) {
     console.error('AI suggestion error:', err.message);
 
-    return res.status(400).json({
+    return res.status(500).json({
       success: false,
-      error: 'Chave da API xAI Grok não configurada ou inválida. Configure a chave grok_api_key nas configurações do sistema.',
+      error: `Erro interno ao gerar sugestão: ${err.message}`,
     });
   }
 });
