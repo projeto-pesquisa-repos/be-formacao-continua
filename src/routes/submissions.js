@@ -144,26 +144,36 @@ router.post('/', upload.single('arquivo'), async (req, res) => {
       return res.status(400).json({ success: false, error: 'Título deve ser uma string' });
     }
 
-    if (!['curso', 'evento', 'producao', 'certificacao'].includes(tipo)) {
-      return res.status(400).json({ success: false, error: 'Tipo inválido. Use: curso, evento, producao ou certificacao' });
+    // Normalize tipo from suggestion format (e.g. 'Curso' -> 'curso', 'Produção Acadêmica' -> 'producao')
+    const TIPO_MAP = {
+      'curso': 'curso', 'evento': 'evento', 'producao': 'producao', 'certificacao': 'certificacao',
+      'capacitacao': 'capacitacao', 'outro': 'outro',
+      'Curso': 'curso', 'Evento': 'evento', 'Produção Acadêmica': 'producao',
+      'Certificação': 'certificacao', 'Capacitação': 'capacitacao',
+    };
+    const normalizedTipo = TIPO_MAP[tipo] || tipo.toLowerCase();
+
+    const VALID_TIPOS = ['curso', 'evento', 'producao', 'certificacao', 'capacitacao', 'outro'];
+    if (!VALID_TIPOS.includes(normalizedTipo)) {
+      return res.status(400).json({ success: false, error: 'Tipo inválido. Use: curso, evento, producao, certificacao, capacitacao ou outro' });
     }
 
     // Type-specific validation
-    if (tipo === 'curso') {
+    if (normalizedTipo === 'curso') {
       if (!carga_horaria || !instituicao_promotora) {
         return res.status(400).json({
           success: false,
           error: 'Cursos requerem carga_horaria e instituicao_promotora'
         });
       }
-    } else if (tipo === 'evento') {
+    } else if (normalizedTipo === 'evento') {
       if (!nome_evento) {
         return res.status(400).json({
           success: false,
           error: 'Eventos requerem nome_evento'
         });
       }
-    } else if (tipo === 'producao') {
+    } else if (normalizedTipo === 'producao') {
       if (!tipo_producao) {
         return res.status(400).json({
           success: false,
@@ -179,7 +189,7 @@ router.post('/', upload.single('arquivo'), async (req, res) => {
     const existingSubmissions = await db.prepare(`
       SELECT id, titulo FROM acoes_formativas 
       WHERE user_id = ? AND tipo = ?
-    `).all(req.user.id, tipo);
+    `).all(req.user.id, normalizedTipo);
 
     const duplicate = existingSubmissions.some(
       sub => normalizeTitle(sub.titulo) === normalizedTitulo
@@ -205,7 +215,7 @@ router.post('/', upload.single('arquivo'), async (req, res) => {
 
     const result = await stmt.run(
       req.user.id,
-      tipo,
+      normalizedTipo,
       titulo,
       descricao || null,
       carga_horaria ? parseInt(carga_horaria) : null,

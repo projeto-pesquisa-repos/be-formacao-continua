@@ -269,7 +269,7 @@ async function initDb() {
       CREATE TABLE IF NOT EXISTS acoes_formativas (
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id),
-        tipo TEXT NOT NULL CHECK(tipo IN ('curso', 'evento', 'producao', 'certificacao')),
+        tipo TEXT NOT NULL CHECK(tipo IN ('curso', 'evento', 'producao', 'certificacao', 'capacitacao', 'outro')),
         titulo TEXT NOT NULL,
         descricao TEXT,
         carga_horaria INTEGER,
@@ -331,6 +331,17 @@ async function initDb() {
         status TEXT DEFAULT 'pending'
       );
     `);
+
+    // Migration: Update CHECK constraint for tipo to include new values
+    try {
+      await db.exec(`
+        ALTER TABLE acoes_formativas DROP CONSTRAINT IF EXISTS acoes_formativas_tipo_check;
+        ALTER TABLE acoes_formativas ADD CONSTRAINT acoes_formativas_tipo_check 
+          CHECK (tipo IN ('curso', 'evento', 'producao', 'certificacao', 'capacitacao', 'outro'));
+      `);
+    } catch (migrationErr) {
+      console.warn('Postgres migration skipped:', migrationErr.message);
+    }
   } else {
     // SQLite (sql.js) fallback
     if (!SQL) {
@@ -378,7 +389,7 @@ async function initDb() {
       CREATE TABLE IF NOT EXISTS acoes_formativas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL REFERENCES users(id),
-        tipo TEXT NOT NULL CHECK(tipo IN ('curso', 'evento', 'producao', 'certificacao')),
+        tipo TEXT NOT NULL CHECK(tipo IN ('curso', 'evento', 'producao', 'certificacao', 'capacitacao', 'outro')),
         titulo TEXT NOT NULL,
         descricao TEXT,
         carga_horaria INTEGER,
@@ -440,6 +451,47 @@ async function initDb() {
         status TEXT DEFAULT 'pending'
       );
     `);
+
+    // Migration: If existing acoes_formativas table has old CHECK constraint, recreate it
+    try {
+      // Test if new types work by attempting a dummy check
+      const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='acoes_formativas'").get();
+      if (tableInfo && tableInfo.sql && !tableInfo.sql.includes("'outro'")) {
+        console.log('Migrating acoes_formativas table to support new tipos...');
+        db.exec(`
+          CREATE TABLE IF NOT EXISTS acoes_formativas_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            tipo TEXT NOT NULL CHECK(tipo IN ('curso', 'evento', 'producao', 'certificacao', 'capacitacao', 'outro')),
+            titulo TEXT NOT NULL,
+            descricao TEXT,
+            carga_horaria INTEGER,
+            instituicao_promotora TEXT,
+            data_conclusao DATE,
+            tipo_participacao TEXT,
+            nome_evento TEXT,
+            local_evento TEXT,
+            tipo_producao TEXT,
+            doi_isbn TEXT,
+            status TEXT DEFAULT 'pendente' CHECK(status IN ('pendente', 'aprovado', 'rejeitado')),
+            justificativa_rejeicao TEXT,
+            validado_por INTEGER REFERENCES users(id),
+            validado_em TIMESTAMP,
+            arquivo_path TEXT,
+            arquivo_nome TEXT,
+            area_conhecimento_id INTEGER REFERENCES areas_conhecimento(id),
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+          INSERT INTO acoes_formativas_new SELECT * FROM acoes_formativas;
+          DROP TABLE acoes_formativas;
+          ALTER TABLE acoes_formativas_new RENAME TO acoes_formativas;
+        `);
+        console.log('Migration complete.');
+      }
+    } catch (migrationErr) {
+      console.warn('Migration check skipped:', migrationErr.message);
+    }
 
     db.save();
 
