@@ -102,7 +102,7 @@ Sugestão:`;
         'Authorization': `Bearer ${apiKeySetting.value}`
       },
       body: JSON.stringify({
-        model: 'grok-beta',
+        model: 'grok-4.5',
         messages: [
           { role: 'system', content: 'Você é um assistente útil e direto.' },
           { role: 'user', content: prompt }

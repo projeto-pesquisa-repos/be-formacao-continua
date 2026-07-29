@@ -81,7 +81,8 @@ router.get('/faculty-status', async (req, res) => {
         u.id, u.name, u.email, u.department_id,
         d.name as department_name,
         MAX(af.validado_em) as last_approved_date,
-        COUNT(af.id) as total_approved
+        COUNT(af.id) as total_approved,
+        SUM(COALESCE(af.carga_horaria, 0)) as total_horas
       FROM users u
       LEFT JOIN departments d ON u.department_id = d.id
       LEFT JOIN acoes_formativas af ON af.user_id = u.id AND af.status = 'aprovado'
