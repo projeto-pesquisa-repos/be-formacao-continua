@@ -401,6 +401,40 @@ async function runTests() {
     console.log('  ✓ PASSED\n');
   }
 
+  // Test 16: Updating a rejected submission resets status to 'pendente'
+  {
+    console.log('Test 16: Updating a rejected submission resets status to pendente...');
+    // Create submission
+    const createRes = await request
+      .post('/api/submissions')
+      .set('Authorization', `Bearer ${professorToken}`)
+      .field('tipo', 'curso')
+      .field('titulo', 'Curso Para Rejeição')
+      .field('carga_horaria', '10')
+      .field('instituicao_promotora', 'Universidade Rejeitada');
+    assert.strictEqual(createRes.status, 201);
+    const rejectedSubId = createRes.body.data.id;
+
+    // Reject it manually in DB
+    const db = getDb();
+    await db.prepare("UPDATE acoes_formativas SET status = 'rejeitado', justificativa_rejeicao = 'Faltou comprovante' WHERE id = ?").run(rejectedSubId);
+
+    // Verify status is rejeitado
+    const subBefore = await db.prepare('SELECT status FROM acoes_formativas WHERE id = ?').get(rejectedSubId);
+    assert.strictEqual(subBefore.status, 'rejeitado');
+
+    // Update the submission
+    const updateRes = await request
+      .put(`/api/submissions/${rejectedSubId}`)
+      .set('Authorization', `Bearer ${professorToken}`)
+      .field('descricao', 'Descrição atualizada com comprovante');
+
+    assert.strictEqual(updateRes.status, 200, `Expected 200 when updating rejected submission, got ${updateRes.status}`);
+    assert.strictEqual(updateRes.body.data.status, 'pendente', 'Status should be reset to pendente');
+
+    console.log('  ✓ PASSED\n');
+  }
+
   console.log('=== All submissions tests passed! ===\n');
 }
 

@@ -66,8 +66,11 @@ router.post('/:id/approve', async (req, res) => {
       WHERE af.id = ?
     `).get(req.params.id);
 
-    const { awardXP } = require('../services/gamification');
-    await awardXP(submission.user_id, 150);
+    const { awardXP, checkActionBadges } = require('../services/gamification');
+    const targetUserId = submission.user_id || submission.usuario_id;
+    await awardXP(targetUserId, 150);
+    await checkActionBadges(targetUserId);
+    db.save();
 
     return res.json({ success: true, data: updated });
   } catch (err) {
@@ -112,6 +115,8 @@ router.post('/:id/reject', async (req, res) => {
       WHERE id = ?
     `).run(justificativa, req.user.id, req.params.id);
 
+    db.save();
+
     const updated = await db.prepare(`
       SELECT af.*, u.name as user_name, u.email as user_email
       FROM acoes_formativas af
@@ -122,6 +127,106 @@ router.post('/:id/reject', async (req, res) => {
     return res.json({ success: true, data: updated });
   } catch (err) {
     console.error('Reject error:', err.message);
+    return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
+  }
+});
+
+/**
+ * POST /api/validation/:id/change-status
+ * Change status of an already validated (or pending) submission with justification.
+ */
+router.post('/:id/change-status', async (req, res) => {
+  try {
+    const { status, justificativa } = req.body;
+    const { id } = req.params;
+
+    if (!status || !['aprovado', 'rejeitado'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        error: "Status inválido. Use 'aprovado' ou 'rejeitado'"
+      });
+    }
+
+    if (status === 'rejeitado' && (!justificativa || justificativa.trim() === '')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Justificativa é obrigatória para rejeitar uma submissão'
+      });
+    }
+
+    const db = getDb();
+    const submission = await db.prepare('SELECT * FROM acoes_formativas WHERE id = ?').get(id);
+
+    if (!submission) {
+      return res.status(404).json({ success: false, error: 'Submissão não encontrada' });
+    }
+
+    if (submission.status === status) {
+      return res.status(400).json({
+        success: false,
+        error: `A submissão já possui o status '${status}'`
+      });
+    }
+
+    const previousStatus = submission.status;
+    const targetUserId = submission.user_id || submission.usuario_id;
+    const { awardXP, checkActionBadges } = require('../services/gamification');
+
+    if (status === 'rejeitado') {
+      // If previous status was aprovado, deduct 150 XP (floored at 0)
+      if (previousStatus === 'aprovado') {
+        const stats = await db.prepare('SELECT xp FROM user_gamification WHERE user_id = ?').get(targetUserId);
+        const currentXP = stats ? stats.xp : 0;
+        const newXP = Math.max(0, currentXP - 150);
+        const newLevel = Math.floor(newXP / 1000) + 1;
+
+        await db.prepare('UPDATE user_gamification SET xp = ?, level = ? WHERE user_id = ?')
+          .run(newXP, newLevel, targetUserId);
+      }
+
+      await db.prepare(`
+        UPDATE acoes_formativas
+        SET status = 'rejeitado',
+            justificativa_rejeicao = ?,
+            validado_por = ?,
+            validado_em = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(justificativa ? justificativa.trim() : null, req.user.id, id);
+    } else if (status === 'aprovado') {
+      // If previous status was rejeitado or pendente, award 150 XP & check badges
+      if (previousStatus !== 'aprovado') {
+        await awardXP(targetUserId, 150);
+        await checkActionBadges(targetUserId);
+      }
+
+      await db.prepare(`
+        UPDATE acoes_formativas
+        SET status = 'aprovado',
+            justificativa_rejeicao = NULL,
+            validado_por = ?,
+            validado_em = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(req.user.id, id);
+    }
+
+    db.save();
+
+    const updated = await db.prepare(`
+      SELECT af.*, u.name as user_name, u.email as user_email
+      FROM acoes_formativas af
+      JOIN users u ON af.user_id = u.id
+      WHERE af.id = ?
+    `).get(id);
+
+    return res.json({
+      success: true,
+      message: 'Status alterado com sucesso',
+      data: updated
+    });
+  } catch (err) {
+    console.error('Change status error:', err.message);
     return res.status(500).json({ success: false, error: 'Erro interno do servidor' });
   }
 });

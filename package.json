@@ -7,7 +7,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "seed": "node src/seed.js",
-    "test": "node test/auth.test.js && node test/submissions.test.js && node test/validation.test.js && node test/gamification.test.js && node test/suggestions.test.js && node test/exploit.test.js"
+    "test": "node test/auth.test.js && node test/submissions.test.js && node test/validation.test.js && node test/gamification.test.js && node test/suggestions.test.js && node test/exploit.test.js && node test/m2_requirements.test.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -26,9 +26,9 @@ async function setup() {
 
   // Insert seed data for badges if they don't exist
   const db = getDb();
-  db.prepare("INSERT INTO badges (name, description, icon, requirement_type, requirement_value) VALUES ('Iniciante', 'Primeiro passo', '⭐', 'level', 1)").run();
-  db.prepare("INSERT INTO badges (name, description, icon, requirement_type, requirement_value) VALUES ('Intermediário', 'Nível 2', '🌟', 'level', 2)").run();
-  db.prepare("INSERT INTO badges (name, description, icon, requirement_type, requirement_value) VALUES ('Pesquisador', 'Primeira produção', '🔬', 'producao', 1)").run();
+  await db.prepare("INSERT INTO badges (name, description, icon, requirement_type, requirement_value) VALUES ('Iniciante', 'Primeiro passo', '⭐', 'level', 1)").run();
+  await db.prepare("INSERT INTO badges (name, description, icon, requirement_type, requirement_value) VALUES ('Intermediário', 'Nível 2', '🌟', 'level', 2)").run();
+  await db.prepare("INSERT INTO badges (name, description, icon, requirement_type, requirement_value) VALUES ('Pesquisador', 'Primeira produção', '🔬', 'producao', 1)").run();
 }
 
 async function runTests() {
@@ -48,8 +48,8 @@ async function runTests() {
     process.exit(1);
   }
 
-  // Test 2: Submission awards 0 XP
-  process.stdout.write(`Test ${testNum++}: Submitting awards 0 XP... `);
+  // Test 2: Submission awards 50 XP
+  process.stdout.write(`Test ${testNum++}: Submitting awards 50 XP... `);
   const subRes = await request(app)
     .post('/api/submissions')
     .set('Authorization', `Bearer ${professorToken}`)
@@ -65,7 +65,7 @@ async function runTests() {
   }
 
   const res2 = await request(app).get('/api/gamification').set('Authorization', `Bearer ${professorToken}`);
-  if (res2.status === 200 && res2.body.data.xp === 0 && res2.body.data.level === 1) {
+  if (res2.status === 200 && res2.body.data.xp === 50 && res2.body.data.level === 1) {
     console.log('✓ PASSED');
   } else {
     console.log('✗ FAILED');
@@ -75,7 +75,7 @@ async function runTests() {
 
   const submissionId = subRes.body.data.id;
 
-  // Test 3: Validation (Approve) awards 150 XP
+  // Test 3: Validation (Approve) awards 150 XP (total 200 XP)
   process.stdout.write(`Test ${testNum++}: Approving awards 150 XP... `);
   const approveRes = await request(app)
     .post(`/api/validation/${submissionId}/approve`)
@@ -88,7 +88,7 @@ async function runTests() {
   }
 
   const res3 = await request(app).get('/api/gamification').set('Authorization', `Bearer ${professorToken}`);
-  if (res3.status === 200 && res3.body.data.xp === 150) {
+  if (res3.status === 200 && res3.body.data.xp === 200) {
     console.log('✓ PASSED');
   } else {
     console.log('✗ FAILED');
@@ -100,10 +100,10 @@ async function runTests() {
   process.stdout.write(`Test ${testNum++}: XP above 1000 increases level... `);
   // Let's directly award XP
   const { awardXP } = require('../src/services/gamification');
-  awardXP(professorId, 900); // total 1050
+  await awardXP(professorId, 900); // total 1100 (200 + 900)
   
   const res4 = await request(app).get('/api/gamification').set('Authorization', `Bearer ${professorToken}`);
-  if (res4.status === 200 && res4.body.data.xp === 1050 && res4.body.data.level === 2) {
+  if (res4.status === 200 && res4.body.data.xp === 1100 && res4.body.data.level === 2) {
     console.log('✓ PASSED');
   } else {
     console.log('✗ FAILED');
@@ -165,6 +165,17 @@ async function runTests() {
   } else {
     console.log('✗ FAILED');
     console.log(res6.body);
+    process.exit(1);
+  }
+
+  // Test 7: GET /api/gamification/badges returns all badges
+  process.stdout.write(`Test ${testNum++}: GET /api/gamification/badges returns badges list... `);
+  const res7 = await request(app).get('/api/gamification/badges').set('Authorization', `Bearer ${professorToken}`);
+  if (res7.status === 200 && res7.body.success && Array.isArray(res7.body.data) && res7.body.data.length >= 3) {
+    console.log('✓ PASSED');
+  } else {
+    console.log('✗ FAILED');
+    console.log(res7.body);
     process.exit(1);
   }
 

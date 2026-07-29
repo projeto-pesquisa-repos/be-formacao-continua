@@ -269,7 +269,7 @@ async function initDb() {
       CREATE TABLE IF NOT EXISTS acoes_formativas (
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id),
-        tipo TEXT NOT NULL CHECK(tipo IN ('curso', 'evento', 'producao')),
+        tipo TEXT NOT NULL CHECK(tipo IN ('curso', 'evento', 'producao', 'certificacao')),
         titulo TEXT NOT NULL,
         descricao TEXT,
         carga_horaria INTEGER,
@@ -378,7 +378,7 @@ async function initDb() {
       CREATE TABLE IF NOT EXISTS acoes_formativas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL REFERENCES users(id),
-        tipo TEXT NOT NULL CHECK(tipo IN ('curso', 'evento', 'producao')),
+        tipo TEXT NOT NULL CHECK(tipo IN ('curso', 'evento', 'producao', 'certificacao')),
         titulo TEXT NOT NULL,
         descricao TEXT,
         carga_horaria INTEGER,

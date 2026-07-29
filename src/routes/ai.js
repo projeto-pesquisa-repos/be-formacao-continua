@@ -18,10 +18,10 @@ router.post('/suggest/:professorId', async (req, res) => {
 
     // 1. Get the AI API key from settings
     const apiKeySetting = db.prepare("SELECT value FROM settings WHERE key = 'grok_api_key'").get();
-    if (!apiKeySetting || !apiKeySetting.value) {
+    if (!apiKeySetting || !apiKeySetting.value || apiKeySetting.value.trim() === '') {
       return res.status(400).json({
         success: false,
-        error: 'Chave da API de IA não configurada. Acesse Configurações para inserir a chave.',
+        error: 'Chave da API xAI Grok não configurada ou inválida. Configure a chave grok_api_key nas configurações do sistema.',
       });
     }
 
@@ -113,13 +113,10 @@ Sugestão:`;
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error('xAI API Error:', errorData);
-      if (response.status === 401 || response.status === 403) {
-        return res.status(400).json({
-          success: false,
-          error: 'Chave da API inválida. Verifique a chave nas Configurações.',
-        });
-      }
-      throw new Error(`xAI API responded with status ${response.status}`);
+      return res.status(400).json({
+        success: false,
+        error: 'Chave da API xAI Grok não configurada ou inválida. Configure a chave grok_api_key nas configurações do sistema.',
+      });
     }
 
     const result = await response.json();
@@ -129,9 +126,9 @@ Sugestão:`;
   } catch (err) {
     console.error('AI suggestion error:', err.message);
 
-    return res.status(500).json({
+    return res.status(400).json({
       success: false,
-      error: 'Erro ao gerar sugestão. Verifique a chave da API e tente novamente.',
+      error: 'Chave da API xAI Grok não configurada ou inválida. Configure a chave grok_api_key nas configurações do sistema.',
     });
   }
 });

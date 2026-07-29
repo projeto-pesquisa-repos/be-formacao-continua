@@ -26,6 +26,9 @@ async function auth(req, res, next) {
     }
 
     const deviceId = req.headers['x-device-id'];
+    const deviceNameHeader = req.headers['x-device-name'];
+    const deviceName = deviceNameHeader ? decodeURIComponent(deviceNameHeader).trim() : null;
+
     if (deviceId) {
       const db = getDb();
       const googleId = 'device:' + deviceId;
@@ -33,11 +36,12 @@ async function auth(req, res, next) {
       const email = `device_${deviceHash}@device.local`;
 
       let user = await db.prepare('SELECT * FROM users WHERE google_id = ?').get(googleId);
+      const nameToUse = (deviceName && deviceName.length > 0) ? deviceName : 'Docente Mobile';
 
       if (!user) {
         const result = await db.prepare(
-          "INSERT INTO users (google_id, email, name, role) VALUES (?, ?, 'Docente Mobile', 'professor')"
-        ).run(googleId, email);
+          "INSERT INTO users (google_id, email, name, role) VALUES (?, ?, ?, 'professor')"
+        ).run(googleId, email, nameToUse);
 
         user = await db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
 
@@ -46,10 +50,23 @@ async function auth(req, res, next) {
         ).run(user.id);
 
         db.save();
-      } else if (user.role === 'coordenador') {
-        await db.prepare("UPDATE users SET role = 'professor' WHERE id = ?").run(user.id);
-        user.role = 'professor';
-        db.save();
+      } else {
+        let needsSave = false;
+        if (user.role === 'coordenador') {
+          await db.prepare("UPDATE users SET role = 'professor' WHERE id = ?").run(user.id);
+          user.role = 'professor';
+          needsSave = true;
+        }
+
+        if (deviceName && deviceName.length > 0 && (user.name === 'Docente Mobile' || user.email.endsWith('@device.local') || user.name !== deviceName)) {
+          await db.prepare("UPDATE users SET name = ? WHERE id = ?").run(deviceName, user.id);
+          user.name = deviceName;
+          needsSave = true;
+        }
+
+        if (needsSave) {
+          db.save();
+        }
       }
 
       req.user = {

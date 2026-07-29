@@ -5,6 +5,7 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('../database');
 const { auth } = require('../middleware/auth');
+const { awardXP } = require('../services/gamification');
 
 const router = express.Router();
 
@@ -29,7 +30,15 @@ const storage = multer.diskStorage({
     cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
-    const uniqueName = uuidv4() + path.extname(file.originalname);
+    let ext = path.extname(file.originalname);
+    if (!ext) {
+      if (file.mimetype === 'image/jpeg') ext = '.jpg';
+      else if (file.mimetype === 'image/png') ext = '.png';
+      else if (file.mimetype === 'image/gif') ext = '.gif';
+      else if (file.mimetype === 'application/pdf') ext = '.pdf';
+      else ext = '.bin';
+    }
+    const uniqueName = uuidv4() + ext;
     cb(null, uniqueName);
   }
 });
@@ -135,8 +144,8 @@ router.post('/', upload.single('arquivo'), async (req, res) => {
       return res.status(400).json({ success: false, error: 'Título deve ser uma string' });
     }
 
-    if (!['curso', 'evento', 'producao'].includes(tipo)) {
-      return res.status(400).json({ success: false, error: 'Tipo inválido. Use: curso, evento ou producao' });
+    if (!['curso', 'evento', 'producao', 'certificacao'].includes(tipo)) {
+      return res.status(400).json({ success: false, error: 'Tipo inválido. Use: curso, evento, producao ou certificacao' });
     }
 
     // Type-specific validation
@@ -219,6 +228,9 @@ router.post('/', upload.single('arquivo'), async (req, res) => {
       WHERE af.id = ?
     `).get(result.lastInsertRowid);
 
+    // Award 50 XP immediately upon creation (R1)
+    await awardXP(req.user.id, 50, 'Envio de ação formativa');
+
     return res.status(201).json({ success: true, data: submission });
   } catch (err) {
     console.error('Create submission error:', err.message);
@@ -278,8 +290,8 @@ router.put('/:id', upload.single('arquivo'), async (req, res) => {
       return res.status(403).json({ success: false, error: 'Acesso negado' });
     }
 
-    if (submission.status !== 'pendente') {
-      return res.status(400).json({ success: false, error: 'Somente submissões pendentes podem ser editadas' });
+    if (submission.status !== 'pendente' && submission.status !== 'rejeitado') {
+      return res.status(400).json({ success: false, error: 'Somente submissões pendentes ou rejeitadas podem ser editadas' });
     }
 
     const {
@@ -333,6 +345,7 @@ router.put('/:id', upload.single('arquivo'), async (req, res) => {
         arquivo_path = COALESCE(?, arquivo_path),
         arquivo_nome = COALESCE(?, arquivo_nome),
         area_conhecimento_id = COALESCE(?, area_conhecimento_id),
+        status = 'pendente',
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `);

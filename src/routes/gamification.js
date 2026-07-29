@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getGamification, getLeaderboard } = require('../services/gamification');
+const { getGamification, getLeaderboard, getAllBadges } = require('../services/gamification');
 const { auth } = require('../middleware/auth');
 
 router.get('/', auth, async (req, res) => {
@@ -10,6 +10,16 @@ router.get('/', auth, async (req, res) => {
   } catch (error) {
     console.error('Error fetching gamification data:', error);
     res.status(500).json({ success: false, error: 'Erro ao buscar dados de gamificação' });
+  }
+});
+
+router.get('/badges', auth, async (req, res) => {
+  try {
+    const data = await getAllBadges();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching badges:', error);
+    res.status(500).json({ success: false, error: 'Erro ao buscar badges' });
   }
 });
 

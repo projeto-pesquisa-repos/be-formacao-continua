@@ -82,7 +82,7 @@ router.get('/', requireRole('coordenador'), async (req, res) => {
   try {
     const db = getDb();
     const users = await db.prepare(`
-      SELECT u.id, u.email, u.name, u.avatar_url, u.role, u.department_id,
+      SELECT u.id, u.google_id, u.email, u.name, u.avatar_url, u.role, u.department_id,
              u.created_at, d.name as department_name
       FROM users u
       LEFT JOIN departments d ON u.department_id = d.id

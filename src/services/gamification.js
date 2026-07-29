@@ -81,13 +81,17 @@ async function awardXP(userId, amount) {
 }
 
 /**
- * Check and award action-based badges
+ * Check and award all types of badges (action, stats, hours, streak, etc.)
  * @param {number} userId 
  */
 async function checkActionBadges(userId) {
   const db = getDb();
   
-  // Get counts of approved actions by type
+  // 1. Get user gamification stats
+  const stats = (await db.prepare('SELECT xp, level, streak FROM user_gamification WHERE user_id = ?').get(userId))
+    || { xp: 0, level: 1, streak: 0 };
+  
+  // 2. Get counts of approved actions by type
   const approvedActions = await db.prepare(`
     SELECT tipo, count(*) as count 
     FROM acoes_formativas 
@@ -95,21 +99,71 @@ async function checkActionBadges(userId) {
     GROUP BY tipo
   `).all(userId);
 
-  // Get unawarded action badges
-  const unawardedActionBadges = await db.prepare(`
-    SELECT id, requirement_type, requirement_value FROM badges 
-    WHERE requirement_type IN ('curso', 'evento', 'producao')
-      AND id NOT IN (SELECT badge_id FROM user_badges WHERE user_id = ?)
+  // 3. Get total approved hours
+  const totalHoursRow = await db.prepare(`
+    SELECT COALESCE(SUM(carga_horaria), 0) as total_hours
+    FROM acoes_formativas
+    WHERE user_id = ? AND status = 'aprovado'
+  `).get(userId);
+  const totalHours = totalHoursRow ? Number(totalHoursRow.total_hours) : 0;
+
+  // 4. Get count of distinct approved types
+  const distinctTypesRow = await db.prepare(`
+    SELECT COUNT(DISTINCT tipo) as distinct_types
+    FROM acoes_formativas
+    WHERE user_id = ? AND status = 'aprovado'
+  `).get(userId);
+  const distinctTypes = distinctTypesRow ? Number(distinctTypesRow.distinct_types) : 0;
+
+  // 5. Get count of approved certifications
+  const certCountRow = await db.prepare(`
+    SELECT COUNT(*) as count
+    FROM acoes_formativas
+    WHERE user_id = ? AND status = 'aprovado' AND (tipo = 'certificacao' OR tipo_producao = 'certificacao')
+  `).get(userId);
+  const certCount = certCountRow ? Number(certCountRow.count) : 0;
+
+  // 6. Get unawarded badges
+  const unawardedBadges = await db.prepare(`
+    SELECT id, requirement_type, requirement_value 
+    FROM badges 
+    WHERE id NOT IN (SELECT badge_id FROM user_badges WHERE user_id = ?)
   `).all(userId);
 
-  for (const badge of unawardedActionBadges) {
-    const actionType = badge.requirement_type;
-    const requiredCount = badge.requirement_value;
-    const actionCount = approvedActions.find(a => a.tipo === actionType)?.count || 0;
-    
-    // If the user has at least requiredCount approved actions of this type, award the badge
-    if (actionCount >= requiredCount) {
-      await awardBadge(userId, badge.id);
+  for (const badge of unawardedBadges) {
+    const { id, requirement_type, requirement_value } = badge;
+    let earned = false;
+
+    switch (requirement_type) {
+      case 'level':
+        if (stats.level >= requirement_value) earned = true;
+        break;
+      case 'xp':
+        if (stats.xp >= requirement_value) earned = true;
+        break;
+      case 'streak':
+        if ((stats.streak || 0) >= requirement_value) earned = true;
+        break;
+      case 'hours':
+        if (totalHours >= requirement_value) earned = true;
+        break;
+      case 'types':
+        if (distinctTypes >= requirement_value) earned = true;
+        break;
+      case 'certificacao':
+        if (certCount >= requirement_value) earned = true;
+        break;
+      case 'curso':
+      case 'evento':
+      case 'producao': {
+        const cnt = approvedActions.find(a => a.tipo === requirement_type)?.count || 0;
+        if (cnt >= requirement_value) earned = true;
+        break;
+      }
+    }
+
+    if (earned) {
+      await awardBadge(userId, id);
     }
   }
 }
@@ -134,10 +188,20 @@ async function getLeaderboard() {
   }));
 }
 
+/**
+ * Get all available badges
+ * @returns {Promise<Array>} List of all badges
+ */
+async function getAllBadges() {
+  const db = getDb();
+  return await db.prepare('SELECT * FROM badges ORDER BY id ASC').all();
+}
+
 module.exports = {
   getGamification,
   getLeaderboard,
   awardXP,
   awardBadge,
-  checkActionBadges
+  checkActionBadges,
+  getAllBadges
 };
