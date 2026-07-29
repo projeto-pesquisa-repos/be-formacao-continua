@@ -38,19 +38,17 @@ router.get('/coverage', async (req, res) => {
       SELECT
         d.id as department_id,
         d.name as department_name,
-        ac.id as area_id,
-        ac.name as area_name,
         COUNT(af.id) as total_acoes,
         SUM(CASE WHEN af.tipo = 'curso' THEN 1 ELSE 0 END) as cursos,
         SUM(CASE WHEN af.tipo = 'evento' THEN 1 ELSE 0 END) as eventos,
         SUM(CASE WHEN af.tipo = 'producao' THEN 1 ELSE 0 END) as producoes,
-        SUM(COALESCE(af.carga_horaria, 0)) as total_horas
+        SUM(COALESCE(af.carga_horaria, 0)) as total_horas,
+        COUNT(DISTINCT u.id) as total_professores
       FROM departments d
-      LEFT JOIN areas_conhecimento ac ON ac.department_id = d.id
-      LEFT JOIN acoes_formativas af ON af.area_conhecimento_id = ac.id
-        AND af.status = 'aprovado' ${dateFilter}
-      GROUP BY d.id, ac.id
-      ORDER BY d.name, ac.name
+      LEFT JOIN users u ON u.department_id = d.id AND u.role = 'professor'
+      LEFT JOIN acoes_formativas af ON af.user_id = u.id ${dateFilter}
+      GROUP BY d.id
+      ORDER BY d.name
     `).all(...params);
 
     return res.json({ success: true, data: coverage });
@@ -80,12 +78,12 @@ router.get('/faculty-status', async (req, res) => {
       SELECT
         u.id, u.name, u.email, u.department_id,
         d.name as department_name,
-        MAX(af.validado_em) as last_approved_date,
+        MAX(af.created_at) as last_approved_date,
         COUNT(af.id) as total_approved,
         SUM(COALESCE(af.carga_horaria, 0)) as total_horas
       FROM users u
       LEFT JOIN departments d ON u.department_id = d.id
-      LEFT JOIN acoes_formativas af ON af.user_id = u.id AND af.status = 'aprovado'
+      LEFT JOIN acoes_formativas af ON af.user_id = u.id
       WHERE u.role = 'professor' ${deptFilter}
       GROUP BY u.id
       ORDER BY u.name
