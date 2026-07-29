@@ -16,12 +16,23 @@ router.post('/suggest/:professorId', async (req, res) => {
     const { professorId } = req.params;
     const db = getDb();
 
-    // 1. Get the AI API key from settings
-    const apiKeySetting = db.prepare("SELECT value FROM settings WHERE key = 'grok_api_key'").get();
-    if (!apiKeySetting || !apiKeySetting.value || apiKeySetting.value.trim() === '') {
+    // 1. Get the AI API key from settings OR environment variable
+    let apiKey = process.env.XAI_API_KEY || '';
+
+    // Try DB settings as additional source
+    try {
+      const apiKeySetting = db.prepare("SELECT value FROM settings WHERE key = 'grok_api_key'").get();
+      if (apiKeySetting && apiKeySetting.value && apiKeySetting.value.trim() !== '') {
+        apiKey = apiKeySetting.value.trim();
+      }
+    } catch (e) {
+      // settings table might not exist yet, continue with env var
+    }
+
+    if (!apiKey) {
       return res.status(400).json({
         success: false,
-        error: 'Chave da API xAI Grok não configurada ou inválida. Configure a chave grok_api_key nas configurações do sistema.',
+        error: 'Chave da API xAI Grok não configurada. Defina a variável de ambiente XAI_API_KEY ou configure grok_api_key nas configurações do sistema.',
       });
     }
 
@@ -99,7 +110,7 @@ Sugestão:`;
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKeySetting.value}`
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model: 'grok-4.5',
