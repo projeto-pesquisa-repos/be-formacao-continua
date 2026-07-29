@@ -158,29 +158,7 @@ router.post('/', upload.single('arquivo'), async (req, res) => {
       return res.status(400).json({ success: false, error: 'Tipo inválido. Use: curso, evento, producao, certificacao, capacitacao ou outro' });
     }
 
-    // Type-specific validation
-    if (normalizedTipo === 'curso') {
-      if (!carga_horaria || !instituicao_promotora) {
-        return res.status(400).json({
-          success: false,
-          error: 'Cursos requerem carga_horaria e instituicao_promotora'
-        });
-      }
-    } else if (normalizedTipo === 'evento') {
-      if (!nome_evento) {
-        return res.status(400).json({
-          success: false,
-          error: 'Eventos requerem nome_evento'
-        });
-      }
-    } else if (normalizedTipo === 'producao') {
-      if (!tipo_producao) {
-        return res.status(400).json({
-          success: false,
-          error: 'Produções requerem tipo_producao'
-        });
-      }
-    }
+    // Type-specific fields are optional — only tipo and titulo are required
 
     // Normalize the title input string
     const normalizedTitulo = normalizeTitle(titulo);
