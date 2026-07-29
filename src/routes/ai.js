@@ -49,39 +49,53 @@ router.post('/suggest/:professorId', async (req, res) => {
     }
 
     // 3. Get the professor's area of knowledge (from their department)
-    const areas = db.prepare(`
-      SELECT ac.name FROM areas_conhecimento ac
-      JOIN departments d ON ac.department_id = d.id
-      JOIN users u ON u.department_id = d.id
-      WHERE u.id = ?
-    `).all(professorId);
+    let areas = [];
+    try {
+      const areasResult = await db.prepare(`
+        SELECT ac.name FROM areas_conhecimento ac
+        JOIN departments d ON ac.department_id = d.id
+        JOIN users u ON u.department_id = d.id
+        WHERE u.id = ?
+      `).all(professorId);
+      areas = Array.isArray(areasResult) ? areasResult : [];
+    } catch (e) {
+      // Professor may not have a department
+    }
 
     const areasStr = areas.map(a => a.name).join(', ') || 'Não definida';
 
     // 4. Get the professor's completed/registered formations
-    const formations = db.prepare(`
-      SELECT tipo, titulo, carga_horaria, data_conclusao, status
-      FROM acoes_formativas
-      WHERE user_id = ?
-      ORDER BY created_at DESC
-      LIMIT 10
-    `).all(professorId);
+    let formations = [];
+    try {
+      const formResult = await db.prepare(`
+        SELECT tipo, titulo, carga_horaria, data_conclusao, status
+        FROM acoes_formativas
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT 10
+      `).all(professorId);
+      formations = Array.isArray(formResult) ? formResult : [];
+    } catch (e) {}
 
     const formationsStr = formations.length > 0
       ? formations.map(f => `- [${f.tipo}] ${f.titulo} (${f.status})`).join('\n')
       : 'Nenhuma formação registrada';
 
     // 5. Get overall trending areas in the institution (last year)
-    const trends = db.prepare(`
-      SELECT ac.name as area, COUNT(*) as total
-      FROM acoes_formativas af
-      JOIN areas_conhecimento ac ON af.area_conhecimento_id = ac.id
-      WHERE af.created_at >= datetime('now', '-12 months')
-        AND af.status = 'aprovado'
-      GROUP BY ac.id
-      ORDER BY total DESC
-      LIMIT 5
-    `).all();
+    let trends = [];
+    try {
+      const trendsResult = await db.prepare(`
+        SELECT ac.name as area, COUNT(*) as total
+        FROM acoes_formativas af
+        JOIN areas_conhecimento ac ON af.area_conhecimento_id = ac.id
+        WHERE af.created_at >= datetime('now', '-12 months')
+          AND af.status = 'aprovado'
+        GROUP BY ac.id
+        ORDER BY total DESC
+        LIMIT 5
+      `).all();
+      trends = Array.isArray(trendsResult) ? trendsResult : [];
+    } catch (e) {}
 
     const trendsStr = trends.length > 0
       ? trends.map(t => `- ${t.area}: ${t.total} ações`).join('\n')
