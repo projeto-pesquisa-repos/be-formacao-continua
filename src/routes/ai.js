@@ -107,16 +107,16 @@ router.post('/suggest/:professorId', async (req, res) => {
       'Grupo de estudos', 'Mentoria', 'Curso online', 'Congresso',
       'Imersão', 'Residência pedagógica', 'Intercâmbio acadêmico'
     ];
-    const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+    const rCategory = categories[Math.floor(Math.random() * categories.length)];
 
     const prompt = `Você é um consultor pedagógico experiente de uma instituição de ensino superior brasileira.
 
-Sua tarefa: gerar UMA sugestão ORIGINAL e CRIATIVA de formação continuada para o professor descrito abaixo.
+Sua tarefa: gerar UMA sugestão ORIGINAL e CONCISA de formação continuada para o professor descrito abaixo.
 
 REGRAS OBRIGATÓRIAS:
-1. A sugestão deve ser do tipo "${randomCategory}" (ou similar).
+1. A sugestão deve ser do tipo "${rCategory}" (ou similar).
 2. NÃO use a palavra "workshop" na resposta.
-3. A sugestão deve ser DIFERENTE de "metodologias ativas" (o professor já fez formações nisso).
+3. A sugestão deve ser DIFERENTE das formações já feitas.
 4. Foque em uma competência ou área que o professor AINDA NÃO explorou.
 5. Seja específico: mencione nome do tema, carga horária sugerida e público-alvo.
 
