@@ -102,22 +102,43 @@ router.post('/suggest/:professorId', async (req, res) => {
       : 'Sem dados de tendência disponíveis';
 
     // 6. Build the AI prompt
-    const prompt = `Você é um consultor pedagógico de uma instituição de ensino superior.
-Gere UMA sugestão curta (máximo 2 frases) de formação continuada para o professor abaixo.
-A sugestão deve ser prática, específica e baseada nas lacunas identificadas.
-Responda APENAS com a sugestão, sem introduções ou explicações.
+    const categories = [
+      'Curso de extensão', 'Especialização', 'Seminário', 'Oficina prática',
+      'Grupo de estudos', 'Mentoria', 'Curso online', 'Congresso',
+      'Imersão', 'Residência pedagógica', 'Intercâmbio acadêmico'
+    ];
+    const randomCategory = categories[Math.floor(Math.random() * categories.length)];
 
-Professor: ${professor.name}
-Departamento: ${professor.department_name || 'Não definido'}
-Áreas de Conhecimento: ${areasStr}
+    const prompt = `Você é um consultor pedagógico experiente de uma instituição de ensino superior brasileira.
 
-Formações já realizadas:
+Sua tarefa: gerar UMA sugestão ORIGINAL e CRIATIVA de formação continuada para o professor descrito abaixo.
+
+REGRAS OBRIGATÓRIAS:
+1. A sugestão deve ser do tipo "${randomCategory}" (ou similar).
+2. NÃO use a palavra "workshop" na resposta.
+3. A sugestão deve ser DIFERENTE de "metodologias ativas" (o professor já fez formações nisso).
+4. Foque em uma competência ou área que o professor AINDA NÃO explorou.
+5. Seja específico: mencione nome do tema, carga horária sugerida e público-alvo.
+
+Responda EXCLUSIVAMENTE no formato JSON abaixo, sem nenhum texto adicional:
+{
+  "titulo": "Nome da formação sugerida",
+  "tipo": "Curso|Evento|Certificação|Capacitação",
+  "carga_horaria": 20,
+  "descricao": "Descrição detalhada da formação em 2-3 frases, explicando o conteúdo e a metodologia.",
+  "justificativa": "Por que esta formação é relevante para este professor específico, em 1-2 frases."
+}
+
+DADOS DO PROFESSOR:
+- Nome: ${professor.name}
+- Departamento: ${professor.department_name || 'Não definido'}
+- Áreas de Conhecimento: ${areasStr}
+
+FORMAÇÕES JÁ REALIZADAS:
 ${formationsStr}
 
-Tendências de formação na instituição (último ano):
-${trendsStr}
-
-Sugestão:`;
+TENDÊNCIAS NA INSTITUIÇÃO:
+${trendsStr}`;
 
     // 7. Call the Grok API
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
@@ -128,8 +149,9 @@ Sugestão:`;
       },
       body: JSON.stringify({
         model: 'grok-4.5',
+        temperature: 0.9,
         messages: [
-          { role: 'system', content: 'Você é um assistente útil e direto.' },
+          { role: 'system', content: 'Você é um consultor pedagógico criativo. Responda APENAS com JSON válido, sem markdown, sem explicações.' },
           { role: 'user', content: prompt }
         ],
       })
@@ -146,9 +168,39 @@ Sugestão:`;
     }
 
     const result = await response.json();
-    const suggestion = result.choices[0]?.message?.content?.trim() || 'Não foi possível gerar a sugestão.';
+    const rawContent = result.choices[0]?.message?.content?.trim() || '';
 
-    return res.json({ success: true, data: { suggestion, professor_id: Number(professorId) } });
+    // Try to parse structured JSON response
+    let suggestionData;
+    try {
+      // Strip markdown code fences if present
+      const jsonStr = rawContent.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
+      suggestionData = JSON.parse(jsonStr);
+    } catch (e) {
+      // Fallback: use raw text as description
+      suggestionData = {
+        titulo: 'Sugestão de Formação',
+        tipo: 'Curso',
+        descricao: rawContent,
+        justificativa: '',
+        carga_horaria: null,
+      };
+    }
+
+    const suggestion = suggestionData.descricao || rawContent;
+
+    return res.json({
+      success: true,
+      data: {
+        suggestion,
+        titulo: suggestionData.titulo,
+        tipo: suggestionData.tipo,
+        carga_horaria: suggestionData.carga_horaria,
+        descricao: suggestionData.descricao,
+        justificativa: suggestionData.justificativa,
+        professor_id: Number(professorId),
+      }
+    });
   } catch (err) {
     console.error('AI suggestion error:', err.message);
 
